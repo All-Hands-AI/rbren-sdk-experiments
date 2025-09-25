@@ -5,19 +5,15 @@ This example demonstrates two agents communicating with each other through custo
 """
 
 import os
-import sys
 import threading
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Sequence
 from queue import Queue, Empty
-from pydantic import SecretStr
-
-# Remove conflicting openhands path to ensure we use the SDK version
-sys.path = [p for p in sys.path if not p.startswith('/openhands/code')]
-
+from pydantic import SecretStr, Field
 from openhands.sdk import LLM, Conversation, get_logger
 from openhands.sdk.preset.default import get_default_agent
-from openhands.sdk.tool import Tool, ToolExecutor, ToolSpec, register_tool
+from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor, ToolAnnotations, register_tool
+from openhands.sdk.llm import TextContent
 
 # Set up logging
 logger = get_logger(__name__)
@@ -25,8 +21,43 @@ logger = get_logger(__name__)
 # Global message queues for inter-agent communication
 agent_queues: Dict[str, Queue] = {}
 
+class SendMessageAction(ActionBase):
+    """Action for sending a message to another agent."""
+    recipient_id: str = Field(description="The ID of the recipient agent")
+    message: str = Field(description="The message to send")
+
+class SendMessageObservation(ObservationBase):
+    """Observation from sending a message."""
+    success: bool = Field(description="Whether the message was sent successfully")
+    message: str = Field(description="Status message")
+    recipient: str = Field(description="The recipient agent ID")
+    sender: str = Field(description="The sender agent ID")
+    
+    @property
+    def agent_observation(self) -> Sequence[TextContent]:
+        return [TextContent(text=self.message)]
+
+class ReceiveMessagesAction(ActionBase):
+    """Action for receiving messages from other agents."""
+    timeout: int = Field(default=5, description="Timeout in seconds to wait for messages")
+
+class ReceiveMessagesObservation(ObservationBase):
+    """Observation from receiving messages."""
+    success: bool = Field(description="Whether the operation was successful")
+    messages: list[str] = Field(description="List of received messages")
+    count: int = Field(description="Number of messages received")
+    recipient: str = Field(description="The recipient agent ID")
+    
+    @property
+    def agent_observation(self) -> Sequence[TextContent]:
+        if self.messages:
+            message_text = f"Received {self.count} message(s):\n" + "\n".join(f"• {msg}" for msg in self.messages)
+        else:
+            message_text = "No messages received"
+        return [TextContent(text=message_text)]
+
 class InterAgentMessenger(ToolExecutor):
-    """Custom tool that allows agents to send messages to each other."""
+    """Custom tool executor that allows agents to send messages to each other."""
     
     def __init__(self, agent_id: str):
         self.agent_id = agent_id
@@ -34,31 +65,32 @@ class InterAgentMessenger(ToolExecutor):
         if agent_id not in agent_queues:
             agent_queues[agent_id] = Queue()
     
-    def execute(self, recipient_id: str, message: str, **kwargs) -> Dict[str, Any]:
+    def __call__(self, action: SendMessageAction) -> SendMessageObservation:
         """Send a message to another agent."""
         try:
-            if recipient_id not in agent_queues:
-                agent_queues[recipient_id] = Queue()
+            if action.recipient_id not in agent_queues:
+                agent_queues[action.recipient_id] = Queue()
             
             # Add sender information to the message
-            full_message = f"[From {self.agent_id}]: {message}"
-            agent_queues[recipient_id].put(full_message)
+            full_message = f"[From {self.agent_id}]: {action.message}"
+            agent_queues[action.recipient_id].put(full_message)
             
-            return {
-                "success": True,
-                "message": f"Message sent to {recipient_id}: {message}",
-                "recipient": recipient_id,
-                "sender": self.agent_id
-            }
+            return SendMessageObservation(
+                success=True,
+                message=f"Message sent to {action.recipient_id}: {action.message}",
+                recipient=action.recipient_id,
+                sender=self.agent_id
+            )
         except Exception as e:
-            return {
-                "success": False,
-                "error": str(e),
-                "message": f"Failed to send message to {recipient_id}"
-            }
+            return SendMessageObservation(
+                success=False,
+                message=f"Failed to send message to {action.recipient_id}: {str(e)}",
+                recipient=action.recipient_id,
+                sender=self.agent_id
+            )
 
 class MessageReceiver(ToolExecutor):
-    """Custom tool that allows agents to receive messages from other agents."""
+    """Custom tool executor that allows agents to receive messages from other agents."""
     
     def __init__(self, agent_id: str):
         self.agent_id = agent_id
@@ -66,14 +98,14 @@ class MessageReceiver(ToolExecutor):
         if agent_id not in agent_queues:
             agent_queues[agent_id] = Queue()
     
-    def execute(self, timeout: int = 5, **kwargs) -> Dict[str, Any]:
+    def __call__(self, action: ReceiveMessagesAction) -> ReceiveMessagesObservation:
         """Check for incoming messages from other agents."""
         try:
             messages = []
             start_time = time.time()
             
             # Collect all available messages within the timeout period
-            while time.time() - start_time < timeout:
+            while time.time() - start_time < action.timeout:
                 try:
                     message = agent_queues[self.agent_id].get_nowait()
                     messages.append(message)
@@ -82,27 +114,56 @@ class MessageReceiver(ToolExecutor):
                         break
                     time.sleep(0.1)  # Brief pause before checking again
             
-            if messages:
-                return {
-                    "success": True,
-                    "messages": messages,
-                    "count": len(messages),
-                    "recipient": self.agent_id
-                }
-            else:
-                return {
-                    "success": True,
-                    "messages": [],
-                    "count": 0,
-                    "message": "No messages received",
-                    "recipient": self.agent_id
-                }
+            return ReceiveMessagesObservation(
+                success=True,
+                messages=messages,
+                count=len(messages),
+                recipient=self.agent_id
+            )
         except Exception as e:
-            return {
-                "success": False,
-                "error": str(e),
-                "message": "Failed to check for messages"
-            }
+            return ReceiveMessagesObservation(
+                success=False,
+                messages=[],
+                count=0,
+                recipient=self.agent_id
+            )
+
+def create_messaging_tools(agent_id: str) -> Sequence[Tool]:
+    """Create messaging tools for an agent."""
+    
+    # Create send message tool
+    send_tool = Tool(
+        name=f"send_message_{agent_id}",
+        description=f"Send a message to another agent. Use this to communicate with other agents in the system.",
+        action_type=SendMessageAction,
+        observation_type=SendMessageObservation,
+        annotations=ToolAnnotations(
+            title=f"Send Message ({agent_id})",
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=False,
+            openWorldHint=True,
+        ),
+        executor=InterAgentMessenger(agent_id)
+    )
+    
+    # Create receive messages tool
+    receive_tool = Tool(
+        name=f"receive_messages_{agent_id}",
+        description=f"Check for incoming messages from other agents. Use this to see if other agents have sent you any messages.",
+        action_type=ReceiveMessagesAction,
+        observation_type=ReceiveMessagesObservation,
+        annotations=ToolAnnotations(
+            title=f"Receive Messages ({agent_id})",
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=False,
+            openWorldHint=True,
+        ),
+        executor=MessageReceiver(agent_id)
+    )
+    
+    return [send_tool, receive_tool]
 
 def create_agent_with_messaging(agent_id: str, llm: LLM, working_dir: str):
     """Create an agent with messaging capabilities."""
@@ -111,26 +172,10 @@ def create_agent_with_messaging(agent_id: str, llm: LLM, working_dir: str):
     messenger_tool_name = f"send_message_{agent_id}"
     receiver_tool_name = f"receive_messages_{agent_id}"
     
-    def create_messenger_tool():
-        return [Tool(
-            kind="Tool",
-            name=messenger_tool_name,
-            description=f"Send a message to another agent. Use this to communicate with other agents in the system.",
-            executor=InterAgentMessenger(agent_id)
-        )]
+    register_tool(messenger_tool_name, lambda: create_messaging_tools(agent_id)[:1])  # Send tool only
+    register_tool(receiver_tool_name, lambda: create_messaging_tools(agent_id)[1:])   # Receive tool only
     
-    def create_receiver_tool():
-        return [Tool(
-            kind="Tool", 
-            name=receiver_tool_name,
-            description=f"Check for incoming messages from other agents. Use this to receive messages sent to {agent_id}.",
-            executor=MessageReceiver(agent_id)
-        )]
-    
-    register_tool(messenger_tool_name, create_messenger_tool)
-    register_tool(receiver_tool_name, create_receiver_tool)
-    
-    # Get default agent with additional messaging tools
+    # Get default agent
     agent = get_default_agent(
         llm=llm,
         working_dir=working_dir,
@@ -138,6 +183,7 @@ def create_agent_with_messaging(agent_id: str, llm: LLM, working_dir: str):
     )
     
     # Add messaging tools to the agent
+    from openhands.sdk.tool import ToolSpec
     messaging_tools = [
         ToolSpec(name=messenger_tool_name, params={}),
         ToolSpec(name=receiver_tool_name, params={})
@@ -191,7 +237,7 @@ def main():
     print("=" * 60)
     
     llm = LLM(
-        model="claude-sonnet-4-20250514",
+        model="claude-3-5-sonnet-20241022",
         api_key=SecretStr(api_key),
         service_id="inter-agent-demo",
     )
@@ -209,7 +255,7 @@ def main():
     # Define initial messages for each agent
     alice_initial = """
     Hello! You are Agent Alice. You have been given special tools to communicate with Agent Bob:
-    - Use 'send_message_Alice' to send messages to Bob
+    - Use 'send_message_Alice' to send messages to Bob (set recipient_id to "Bob")
     - Use 'receive_messages_Alice' to check for messages from Bob
     
     Your task is to start a collaborative conversation with Bob about planning a simple Python project. 
@@ -218,7 +264,7 @@ def main():
     
     bob_initial = """
     Hello! You are Agent Bob. You have been given special tools to communicate with Agent Alice:
-    - Use 'send_message_Bob' to send messages to Alice  
+    - Use 'send_message_Bob' to send messages to Alice (set recipient_id to "Alice")
     - Use 'receive_messages_Bob' to check for messages from Alice
     
     Your task is to collaborate with Alice on planning a Python project. Wait for Alice to contact you first, 
