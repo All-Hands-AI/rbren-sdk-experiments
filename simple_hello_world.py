@@ -5,7 +5,12 @@ This example demonstrates basic agent setup and conversation flow.
 """
 
 import os
+import sys
 from pydantic import SecretStr
+
+# Remove conflicting openhands path to ensure we use the SDK version
+sys.path = [p for p in sys.path if not p.startswith('/openhands/code')]
+
 from openhands.sdk import LLM, Conversation, get_logger
 from openhands.sdk.preset.default import get_default_agent
 

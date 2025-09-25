@@ -10,7 +10,17 @@ This repository contains experiments and demos with the OpenHands Agent SDK, sho
 
 ### Installation
 
-#### Option 1: Using pip (Recommended)
+#### Option 1: Using Poetry (Recommended)
+```bash
+# Clone this repository
+git clone https://github.com/All-Hands-AI/rbren-sdk-experiments.git
+cd rbren-sdk-experiments
+
+# Install dependencies using Poetry
+poetry install
+```
+
+#### Option 2: Using pip
 ```bash
 # Clone this repository
 git clone https://github.com/All-Hands-AI/rbren-sdk-experiments.git
@@ -18,11 +28,9 @@ cd rbren-sdk-experiments
 
 # Install dependencies (includes agent-sdk from GitHub)
 pip install -e .
-# or
-pip install -r requirements.txt
 ```
 
-#### Option 2: Manual Setup
+#### Option 3: Manual Setup
 ```bash
 # Clone both repositories
 git clone https://github.com/All-Hands-AI/rbren-sdk-experiments.git
@@ -42,23 +50,15 @@ export ANTHROPIC_API_KEY="your-api-key-here"
 
 ### Run Demos
 ```bash
-# Using the demo runner (automatically detects agent-sdk)
-python run_demo.py simple_hello_world.py
-python run_demo.py inter_agent_communication_demo_v2.py
-
-# Or run directly if you have agent-sdk in your Python path
+# Run demos directly
 python simple_hello_world.py
+python inter_agent_communication_demo_v2.py
+
+# Or use the Makefile for convenience
+make demo-hello
+make demo-inter-agent
+make demo-all
 ```
-
-### Demo Runner
-
-The `run_demo.py` script automatically:
-- Finds the agent-sdk installation
-- Sets up the proper Python environment
-- Validates that your API key is configured
-- Runs the demo from the correct directory
-
-Usage: `python run_demo.py <demo_file.py>`
 
 ## 📁 Demo Files
 
@@ -76,12 +76,12 @@ Usage: `python run_demo.py <demo_file.py>`
   - Basic conversation flow
   - File creation and execution through the agent
   - Demonstrates agent tools (BashTool, FileEditorTool, TaskTrackerTool)
-- **Usage**: `uv run python simple_hello_world.py`
+- **Usage**: `python simple_hello_world.py` or `make demo-hello`
 
 #### `my_hello_world.py`
 - **Description**: Custom hello world implementation
 - **Features**: Similar to simple_hello_world.py but with different conversation flow
-- **Usage**: `uv run python my_hello_world.py`
+- **Usage**: `python my_hello_world.py`
 
 ### 2. Inter-Agent Communication Demos
 
@@ -103,18 +103,27 @@ Usage: `python run_demo.py <demo_file.py>`
   - `ReceiveMessagesAction`/`ReceiveMessagesObservation`: For receiving messages
   - `InterAgentMessenger`: Tool executor for sending messages
   - `MessageReceiver`: Tool executor for receiving messages
-- **Usage**: `uv run python inter_agent_communication_demo_v2.py`
+- **Usage**: `python inter_agent_communication_demo_v2.py` or `make demo-inter-agent`
 
-### 3. Utilities
+### 3. Development Tools
 
-#### `run_demo.py`
-- **Description**: Demo runner script that handles environment setup
+#### `Makefile`
+- **Description**: Automation for common development tasks
 - **Features**:
-  - Auto-detects agent-sdk installation
-  - Sets up proper Python paths
-  - Validates API key configuration
-  - Provides helpful error messages
-- **Usage**: `python run_demo.py <demo_file.py>`
+  - Easy demo running (`make demo-hello`, `make demo-inter-agent`, `make demo-all`)
+  - Environment validation (`make check-env`)
+  - Package installation (`make install`, `make install-dev`)
+  - Code formatting and linting (`make format`, `make lint`)
+  - Testing and cleanup commands
+- **Usage**: `make help` to see all available commands
+
+#### `pyproject.toml`
+- **Description**: Modern Python package configuration
+- **Features**:
+  - Direct dependency on agent-sdk from GitHub
+  - Development dependencies for testing and linting
+  - Proper package metadata and classifiers
+- **Usage**: `pip install -e .` to install the package
 
 ### 4. Documentation
 
