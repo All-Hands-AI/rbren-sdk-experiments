@@ -36,16 +36,16 @@ clean: ## Clean up build artifacts and cache files
 	find . -type f -name "*.pyc" -delete
 
 demo-hello: ## Run the hello world demo
-	python run_demo.py simple_hello_world.py
+	python simple_hello_world.py
 
 demo-inter-agent: ## Run the inter-agent communication demo
-	python run_demo.py inter_agent_communication_demo_v2.py
+	python inter_agent_communication_demo_v2.py
 
 demo-all: ## Run all demos
 	@echo "Running hello world demo..."
-	python run_demo.py simple_hello_world.py
+	python simple_hello_world.py
 	@echo "\nRunning inter-agent communication demo..."
-	python run_demo.py inter_agent_communication_demo_v2.py
+	python inter_agent_communication_demo_v2.py
 
 check-env: ## Check if required environment variables are set
 	@echo "Checking environment..."

@@ -170,7 +170,7 @@ def main():
     print("=" * 60)
     
     llm = LLM(
-        model="claude-3-5-sonnet-20241022",
+        model="claude-sonnet-4-20250514",
         api_key=SecretStr(api_key),
         service_id="inter-agent-demo",
     )

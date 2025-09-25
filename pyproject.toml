@@ -1,22 +1,17 @@
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "rbren-sdk-experiments"
 version = "0.1.0"
-description = "OpenHands Agent SDK experiments and demos"
+description = "Experiments and demos using the OpenHands Agent SDK"
+authors = ["OpenHands Team <contact@all-hands.dev>"]
 readme = "README.md"
-requires-python = ">=3.10"
-license = {text = "MIT"}
-authors = [
-    {name = "OpenHands Team", email = "openhands@all-hands.dev"},
-]
-keywords = ["ai", "agents", "openhands", "sdk", "demos"]
+license = "MIT"
+package-mode = false
+keywords = ["ai", "agent", "sdk", "openhands", "automation"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -25,109 +20,42 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
-dependencies = [
-    # Core OpenHands Agent SDK from GitHub
-    "openhands @ git+https://github.com/All-Hands-AI/agent-sdk.git",
-    
-    # Core dependencies for demos
-    "anthropic>=0.25.0",
-    "pydantic>=2.0.0",
-    
-    # Optional: for enhanced logging and debugging
-    "rich>=13.0.0",
-    "typer>=0.9.0",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-    "pytest-asyncio>=0.21.0",
-    "black>=23.0.0",
-    "isort>=5.12.0",
-    "flake8>=6.0.0",
-    "mypy>=1.0.0",
-]
-
-docs = [
-    "mkdocs>=1.5.0",
-    "mkdocs-material>=9.0.0",
-    "mkdocstrings[python]>=0.22.0",
-]
-
-all = [
-    "rbren-sdk-experiments[dev,docs]",
-]
-
-[project.urls]
+[tool.poetry.urls]
 Homepage = "https://github.com/All-Hands-AI/rbren-sdk-experiments"
 Repository = "https://github.com/All-Hands-AI/rbren-sdk-experiments"
 Documentation = "https://github.com/All-Hands-AI/rbren-sdk-experiments#readme"
 Issues = "https://github.com/All-Hands-AI/rbren-sdk-experiments/issues"
 
-[project.scripts]
-run-demo = "run_demo:main"
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"
+# Core OpenHands Agent SDK from GitHub
+openhands = {git = "https://github.com/All-Hands-AI/agent-sdk.git"}
+# Core dependencies for demos
+anthropic = ">=0.25.0"
+pydantic = ">=2.11.7"
+# Optional: for enhanced logging and debugging
+rich = ">=13.0.0"
+typer = ">=0.9.0"
+# Agent SDK dependencies (required for proper functionality)
+fastmcp = ">=2.11.3"
+litellm = ">=1.75.9"
+python-frontmatter = ">=1.1.0"
+python-json-logger = ">=3.3.0"
+tenacity = ">=9.1.2"
+tomli = {version = ">=1.2.0", markers = "python_version < '3.11'"}
+websockets = ">=12"
+bashlex = ">=0.18"
+libtmux = ">=0.46.0"
+binaryornot = ">=0.4.4"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["*.py"]
+[tool.poetry.group.dev.dependencies]
+pytest = ">=7.0.0"
+pytest-asyncio = ">=0.21.0"
+black = ">=23.0.0"
+isort = ">=5.12.0"
+flake8 = ">=6.0.0"
+mypy = ">=1.0.0"
 
-[tool.black]
-line-length = 88
-target-version = ['py310', 'py311', 'py312']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
-
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-line_length = 88
-known_first_party = ["rbren_sdk_experiments"]
-
-[tool.mypy]
-python_version = "3.10"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
-
-[[tool.mypy.overrides]]
-module = [
-    "anthropic.*",
-    "openhands.*",
-]
-ignore_missing_imports = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py", "*_test.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = [
-    "--strict-markers",
-    "--strict-config",
-    "--verbose",
-]
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-]
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
