@@ -12,7 +12,7 @@ from queue import Queue, Empty
 from pydantic import SecretStr, Field
 from openhands.sdk import LLM, Conversation, get_logger
 from openhands.sdk.agent import Agent
-from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor, ToolAnnotations, ToolSpec
+from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor, ToolAnnotations, ToolSpec, register_tool
 from openhands.sdk.llm import TextContent
 
 # Set up logging
@@ -105,8 +105,7 @@ def create_simple_agent(agent_id: str, llm: LLM, working_dir: str) -> Agent:
         cli_mode=True,
     )
     
-    # Register the messaging tool
-    agent.tool_manager.register_tool("send_message", lambda: [messaging_tool])
+    register_tool("send_message", lambda: [messaging_tool])
     
     return agent
 
