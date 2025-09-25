@@ -4,26 +4,50 @@ This repository contains experiments and demos with the OpenHands Agent SDK, sho
 
 ## 🚀 Quick Start
 
-All demos require the OpenHands Agent SDK and an Anthropic API key:
+### Prerequisites
+- Python 3.10+
+- Anthropic API key
 
+### Installation
+
+#### Option 1: Using pip (Recommended)
 ```bash
-# Clone the agent-sdk repository
-git clone https://github.com/All-Hands-AI/agent-sdk/
-cd agent-sdk
-
-# Build the environment
-make build
-
-# Set your Anthropic API key
-export ANTHROPIC_API_KEY="your-api-key-here"
-
-# Clone this experiments repository
-git clone https://github.com/All-Hands-AI/rbren-sdk-experiments/
+# Clone this repository
+git clone https://github.com/All-Hands-AI/rbren-sdk-experiments.git
 cd rbren-sdk-experiments
 
-# Run any demo using the demo runner
+# Install dependencies (includes agent-sdk from GitHub)
+pip install -e .
+# or
+pip install -r requirements.txt
+```
+
+#### Option 2: Manual Setup
+```bash
+# Clone both repositories
+git clone https://github.com/All-Hands-AI/rbren-sdk-experiments.git
+git clone https://github.com/All-Hands-AI/agent-sdk.git
+
+# Build agent-sdk
+cd agent-sdk
+make build
+cd ../rbren-sdk-experiments
+```
+
+### Setup Environment
+```bash
+# Set your Anthropic API key
+export ANTHROPIC_API_KEY="your-api-key-here"
+```
+
+### Run Demos
+```bash
+# Using the demo runner (automatically detects agent-sdk)
 python run_demo.py simple_hello_world.py
 python run_demo.py inter_agent_communication_demo_v2.py
+
+# Or run directly if you have agent-sdk in your Python path
+python simple_hello_world.py
 ```
 
 ### Demo Runner
