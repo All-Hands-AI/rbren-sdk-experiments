@@ -65,7 +65,7 @@ class InterAgentMessenger(ToolExecutor):
         if agent_id not in agent_queues:
             agent_queues[agent_id] = Queue()
     
-    def execute(self, action: SendMessageAction) -> SendMessageObservation:
+    def __call__(self, action: SendMessageAction) -> SendMessageObservation:
         """Send a message to another agent."""
         try:
             if action.recipient_id not in agent_queues:
@@ -98,7 +98,7 @@ class MessageReceiver(ToolExecutor):
         if agent_id not in agent_queues:
             agent_queues[agent_id] = Queue()
     
-    def execute(self, action: ReceiveMessagesAction) -> ReceiveMessagesObservation:
+    def __call__(self, action: ReceiveMessagesAction) -> ReceiveMessagesObservation:
         """Check for incoming messages from other agents."""
         try:
             messages = []
