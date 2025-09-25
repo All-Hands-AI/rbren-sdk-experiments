@@ -21,6 +21,12 @@ logger = get_logger(__name__)
 # Global message queues for inter-agent communication
 agent_queues: Dict[str, Queue] = {}
 
+# Global registry of active conversations
+active_conversations: Dict[str, Conversation] = {}
+
+# Lock for thread safety
+conversation_lock = threading.Lock()
+
 class SendMessageAction(ActionBase):
     """Action for sending a message to another agent."""
     recipient_id: str = Field(description="The ID of the recipient agent")
@@ -56,6 +62,9 @@ class InterAgentMessenger(ToolExecutor):
             full_message = f"[From {self.agent_id}]: {action.message}"
             agent_queues[action.recipient_id].put(full_message)
             
+            # Trigger the recipient's conversation if it exists and isn't already running
+            self._trigger_recipient_conversation(action.recipient_id)
+            
             return SendMessageObservation(
                 success=True,
                 message=f"Message sent to {action.recipient_id}: {action.message}",
@@ -69,6 +78,55 @@ class InterAgentMessenger(ToolExecutor):
                 recipient=action.recipient_id,
                 sender=self.agent_id
             )
+    
+    def _trigger_recipient_conversation(self, recipient_id: str):
+        """Trigger the recipient's conversation to process the new message."""
+        with conversation_lock:
+            if recipient_id in active_conversations:
+                conversation = active_conversations[recipient_id]
+                
+                # Check if the conversation is already running to avoid conflicts
+                if hasattr(conversation, '_running') and not conversation._running:
+                    # Deliver pending messages and trigger run in a separate thread
+                    threading.Thread(
+                        target=self._deliver_and_run,
+                        args=(recipient_id, conversation),
+                        daemon=True
+                    ).start()
+                elif not hasattr(conversation, '_running'):
+                    # If _running attribute doesn't exist, assume it's safe to run
+                    threading.Thread(
+                        target=self._deliver_and_run,
+                        args=(recipient_id, conversation),
+                        daemon=True
+                    ).start()
+    
+    def _deliver_and_run(self, agent_id: str, conversation: Conversation):
+        """Deliver pending messages and run the conversation."""
+        try:
+            # Mark conversation as running
+            conversation._running = True
+            
+            # Deliver pending messages
+            messages = []
+            if agent_id in agent_queues:
+                while not agent_queues[agent_id].empty():
+                    try:
+                        message = agent_queues[agent_id].get_nowait()
+                        messages.append(message)
+                    except Empty:
+                        break
+            
+            # If there are messages, deliver them and run
+            if messages:
+                message_text = f"You have received {len(messages)} message(s):\n" + "\n".join(f"• {msg}" for msg in messages)
+                conversation.send_message(message_text)
+                conversation.run()
+        except Exception as e:
+            logger.error(f"Error in _deliver_and_run for {agent_id}: {e}")
+        finally:
+            # Mark conversation as not running
+            conversation._running = False
 
 def create_messaging_tool(agent_id: str) -> Tool:
     """Create messaging tool for an agent."""
@@ -109,57 +167,57 @@ def create_simple_agent(agent_id: str, llm: LLM, working_dir: str) -> Agent:
     
     return agent
 
-def check_and_deliver_messages(agent_id: str, conversation: Conversation):
-    """Check for messages and deliver them directly to the agent's conversation."""
-    if agent_id not in agent_queues:
-        return
-    
-    messages = []
-    # Collect all available messages
-    while not agent_queues[agent_id].empty():
-        try:
-            message = agent_queues[agent_id].get_nowait()
-            messages.append(message)
-        except Empty:
-            break
-    
-    # If there are messages, deliver them to the agent
-    if messages:
-        message_text = f"You have received {len(messages)} message(s):\n" + "\n".join(f"• {msg}" for msg in messages)
-        conversation.send_message(message_text)
+def register_conversation(agent_id: str, conversation: Conversation):
+    """Register a conversation in the global registry."""
+    with conversation_lock:
+        active_conversations[agent_id] = conversation
+        # Initialize running state
+        conversation._running = False
 
-def run_agent_conversation(agent_id: str, agent: Agent, initial_message: str, conversation_steps: int = 3):
-    """Run a conversation for a specific agent."""
+def unregister_conversation(agent_id: str):
+    """Unregister a conversation from the global registry."""
+    with conversation_lock:
+        if agent_id in active_conversations:
+            del active_conversations[agent_id]
+
+def run_agent_conversation(agent_id: str, agent: Agent, initial_message: str, max_duration: int = 60):
+    """Run a conversation for a specific agent using event-driven messaging."""
     print(f"\n🤖 Starting conversation for Agent {agent_id}")
     print("=" * 50)
     
     conversation = Conversation(agent=agent)
     
-    # Send initial message
-    conversation.send_message(initial_message)
-    conversation.run()
+    # Register the conversation so it can receive messages
+    register_conversation(agent_id, conversation)
     
-    # Continue conversation for specified steps
-    for step in range(conversation_steps):
-        print(f"\n📨 Agent {agent_id} - Step {step + 1}: Checking for messages and responding...")
-        
-        # Check for messages and deliver them directly
-        check_and_deliver_messages(agent_id, conversation)
-        
-        # Determine the other agent
-        if agent_id == "Alice":
-            other_agent = "Bob"
-        else:
-            other_agent = "Alice"
-            
-        # Ask agent to continue the conversation
-        continue_message = f"Please continue your conversation with {other_agent}. If you want to send a message, use the send_message tool with recipient_id set to '{other_agent}'."
-        
-        conversation.send_message(continue_message)
+    try:
+        # Send initial message and run
+        conversation.send_message(initial_message)
+        conversation._running = True
         conversation.run()
+        conversation._running = False
         
-        # Brief pause between steps
-        time.sleep(2)
+        # Keep the conversation alive for the specified duration
+        # The conversation will be triggered automatically when messages arrive
+        start_time = time.time()
+        while time.time() - start_time < max_duration:
+            time.sleep(1)  # Check every second if we should continue
+            
+            # If this is Alice and no messages have been sent yet, give a gentle nudge
+            if agent_id == "Alice" and time.time() - start_time > 5:
+                with conversation_lock:
+                    if not conversation._running:
+                        other_agent = "Bob"
+                        nudge_message = f"Please start the conversation with {other_agent} by sending them a message using the send_message tool with recipient_id set to '{other_agent}'."
+                        conversation.send_message(nudge_message)
+                        conversation._running = True
+                        conversation.run()
+                        conversation._running = False
+                        break  # Only nudge once
+        
+    finally:
+        # Unregister the conversation
+        unregister_conversation(agent_id)
     
     print(f"✅ Agent {agent_id} conversation completed")
 
@@ -195,6 +253,9 @@ def main():
     Hello! You are Agent Alice. You have been given a special tool to communicate with Agent Bob:
     - Use 'send_message' to send messages to Bob (set recipient_id to "Bob")
     
+    When you send a message to Bob, he will automatically receive it and respond. The conversation is event-driven,
+    so you don't need to check for messages - they will be delivered to you automatically when Bob sends them.
+    
     Your task is to start a collaborative conversation with Bob about planning a simple Python project. 
     Begin by introducing yourself and asking Bob what kind of project he'd like to work on together.
     """
@@ -202,6 +263,9 @@ def main():
     bob_initial = """
     Hello! You are Agent Bob. You have been given a special tool to communicate with Agent Alice:
     - Use 'send_message' to send messages to Alice (set recipient_id to "Alice")
+    
+    When you send a message to Alice, she will automatically receive it and respond. The conversation is event-driven,
+    so you don't need to check for messages - they will be delivered to you automatically when Alice sends them.
     
     Your task is to collaborate with Alice on planning a Python project. Wait for Alice to contact you first, 
     then engage in a friendly conversation about what kind of project you could build together. 
@@ -213,13 +277,13 @@ def main():
     # Create threads for each agent conversation
     alice_thread = threading.Thread(
         target=run_agent_conversation,
-        args=("Alice", agent_alice, alice_initial, 4),
+        args=("Alice", agent_alice, alice_initial, 60),  # 60 seconds max duration
         name="Alice-Thread"
     )
     
     bob_thread = threading.Thread(
         target=run_agent_conversation, 
-        args=("Bob", agent_bob, bob_initial, 4),
+        args=("Bob", agent_bob, bob_initial, 60),  # 60 seconds max duration
         name="Bob-Thread"
     )
     
