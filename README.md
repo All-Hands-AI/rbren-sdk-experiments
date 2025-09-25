@@ -17,9 +17,24 @@ make build
 # Set your Anthropic API key
 export ANTHROPIC_API_KEY="your-api-key-here"
 
-# Run any demo
-uv run python /path/to/demo.py
+# Clone this experiments repository
+git clone https://github.com/All-Hands-AI/rbren-sdk-experiments/
+cd rbren-sdk-experiments
+
+# Run any demo using the demo runner
+python run_demo.py simple_hello_world.py
+python run_demo.py inter_agent_communication_demo_v2.py
 ```
+
+### Demo Runner
+
+The `run_demo.py` script automatically:
+- Finds the agent-sdk installation
+- Sets up the proper Python environment
+- Validates that your API key is configured
+- Runs the demo from the correct directory
+
+Usage: `python run_demo.py <demo_file.py>`
 
 ## 📁 Demo Files
 
@@ -66,7 +81,18 @@ uv run python /path/to/demo.py
   - `MessageReceiver`: Tool executor for receiving messages
 - **Usage**: `uv run python inter_agent_communication_demo_v2.py`
 
-### 3. Documentation
+### 3. Utilities
+
+#### `run_demo.py`
+- **Description**: Demo runner script that handles environment setup
+- **Features**:
+  - Auto-detects agent-sdk installation
+  - Sets up proper Python paths
+  - Validates API key configuration
+  - Provides helpful error messages
+- **Usage**: `python run_demo.py <demo_file.py>`
+
+### 4. Documentation
 
 #### `HELLO_WORLD_DEMO.md`
 - **Description**: Comprehensive documentation of the hello world demo results
