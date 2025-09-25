@@ -47,6 +47,7 @@ websockets = ">=12"
 bashlex = ">=0.18"
 libtmux = ">=0.46.0"
 binaryornot = ">=0.4.4"
+cachetools = "^6.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.0.0"

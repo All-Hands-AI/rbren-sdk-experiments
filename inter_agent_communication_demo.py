@@ -5,14 +5,19 @@ This example demonstrates two agents communicating with each other through custo
 """
 
 import os
+import sys
 import threading
 import time
 from typing import Dict, Any, Optional
 from queue import Queue, Empty
 from pydantic import SecretStr
+
+# Remove conflicting openhands path to ensure we use the SDK version
+sys.path = [p for p in sys.path if not p.startswith('/openhands/code')]
+
 from openhands.sdk import LLM, Conversation, get_logger
 from openhands.sdk.preset.default import get_default_agent
-from openhands.sdk.tool import ToolExecutor, ToolSpec, register_tool
+from openhands.sdk.tool import Tool, ToolExecutor, ToolSpec, register_tool
 
 # Set up logging
 logger = get_logger(__name__)
@@ -106,8 +111,24 @@ def create_agent_with_messaging(agent_id: str, llm: LLM, working_dir: str):
     messenger_tool_name = f"send_message_{agent_id}"
     receiver_tool_name = f"receive_messages_{agent_id}"
     
-    register_tool(messenger_tool_name, lambda: [InterAgentMessenger(agent_id)])
-    register_tool(receiver_tool_name, lambda: [MessageReceiver(agent_id)])
+    def create_messenger_tool():
+        return [Tool(
+            kind="Tool",
+            name=messenger_tool_name,
+            description=f"Send a message to another agent. Use this to communicate with other agents in the system.",
+            executor=InterAgentMessenger(agent_id)
+        )]
+    
+    def create_receiver_tool():
+        return [Tool(
+            kind="Tool", 
+            name=receiver_tool_name,
+            description=f"Check for incoming messages from other agents. Use this to receive messages sent to {agent_id}.",
+            executor=MessageReceiver(agent_id)
+        )]
+    
+    register_tool(messenger_tool_name, create_messenger_tool)
+    register_tool(receiver_tool_name, create_receiver_tool)
     
     # Get default agent with additional messaging tools
     agent = get_default_agent(
