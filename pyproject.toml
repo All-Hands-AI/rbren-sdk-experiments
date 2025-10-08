@@ -21,16 +21,16 @@ classifiers = [
 ]
 
 [tool.poetry.urls]
-Homepage = "https://github.com/All-Hands-AI/rbren-sdk-experiments"
-Repository = "https://github.com/All-Hands-AI/rbren-sdk-experiments"
-Documentation = "https://github.com/All-Hands-AI/rbren-sdk-experiments#readme"
-Issues = "https://github.com/All-Hands-AI/rbren-sdk-experiments/issues"
+Homepage = "https://github.com/OpenHands/rbren-sdk-experiments"
+Repository = "https://github.com/OpenHands/rbren-sdk-experiments"
+Documentation = "https://github.com/OpenHands/rbren-sdk-experiments#readme"
+Issues = "https://github.com/OpenHands/rbren-sdk-experiments/issues"
 
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
 # Core OpenHands Agent SDK from GitHub
 # Core dependencies for demos
-openhands-sdk = {git = "https://github.com/All-Hands-AI/agent-sdk.git", subdirectory = "openhands/sdk", branch = "fix/async-errors-and-graceful-shutdown"}
+openhands-sdk = {git = "https://github.com/OpenHands/agent-sdk.git", subdirectory = "openhands/sdk", branch = "fix/async-errors-and-graceful-shutdown"}
 anthropic = ">=0.25.0"
 pydantic = ">=2.11.7"
 # Optional: for enhanced logging and debugging

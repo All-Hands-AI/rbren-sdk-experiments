@@ -1969,7 +1969,7 @@ boto3 = ["boto3 (>=1.35.0)"]
 
 [package.source]
 type = "git"
-url = "https://github.com/All-Hands-AI/agent-sdk.git"
+url = "https://github.com/OpenHands/agent-sdk.git"
 reference = "fix/async-errors-and-graceful-shutdown"
 resolved_reference = "06e19800451c07504973c809863ca56fbd4acc40"
 subdirectory = "openhands/sdk"

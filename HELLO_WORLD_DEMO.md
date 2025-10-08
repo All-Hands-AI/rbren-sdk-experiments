@@ -6,7 +6,7 @@ This document demonstrates a successful setup and execution of the OpenHands Age
 
 ## What We Accomplished
 
-✅ **Successfully cloned** the OpenHands Agent SDK repository from https://github.com/All-Hands-AI/agent-sdk/
+✅ **Successfully cloned** the OpenHands Agent SDK repository from https://github.com/OpenHands/agent-sdk/
 
 ✅ **Built the development environment** using `make build` with uv package manager
 
